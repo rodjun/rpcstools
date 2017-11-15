@@ -30,7 +30,8 @@ setup(
     keywords='rpcs3 emulator ps3 sfo development',
     install_requires=['requests',
                       'pyyaml',
-                      'tqdm'],
+                      'tqdm',
+                      'urllib3'],
     packages=find_packages(exclude=('tests', 'docs')),
     entry_points={
         'console_scripts': ['update-rpcs3-games=rpcstools.rpcstools:update_games']

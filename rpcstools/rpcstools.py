@@ -44,6 +44,10 @@ def download_updates(tid, base_dir):
     content_folder = os.path.join(base_dir, 'game_updates', str(tid))
 
     cert_path = os.path.join(base_dir, "dev_flash", "data", "cert", "CA05.cer")
+    if not os.path.isfile(cert_path):
+        cert_path=False
+        print("Couldn't find certificates on RPCS3 folder, going to ignore SSL."
+              "To fix this just follow the rpcs3 quickstart guide")
 
     print("Downloading updates for title_id {}".format(tid))
 
@@ -61,7 +65,8 @@ def download_updates(tid, base_dir):
     for node in xml_tree.iter('package'):
         disk_filename = node.attrib['url'].split(os.path.sep)[-1]
         disk_filepath = os.path.join(content_folder, disk_filename)
-        if not os.path.isfile(disk_filepath):
+
+        if not os.path.isfile(disk_filepath) or os.path.getsize(disk_filepath) != node.attrib['size']:
             r = requests.get(node.attrib['url'],
                              verify=cert_path,
                              stream=True)
@@ -81,6 +86,9 @@ def download_updates(tid, base_dir):
                 pbar.close()
 
 
+# TODO: Argument for the rpcs3 folder
+# TODO: Handle more exceptions/possible error cases
+# TODO: Better/More organized printing of information
 def update_games():
     # Silence warnings caused by HIGH QUALITY Sony certs
     urllib3.disable_warnings(urllib3.exceptions.SubjectAltNameWarning)
@@ -88,7 +96,8 @@ def update_games():
     base_dir = get_rpcs3_dir()
 
     if base_dir is None:
-        raise FileNotFoundError("Couldn't find RPCS3 folder")
+        raise FileNotFoundError("Couldn't find RPCS3 folder, make sure you call "
+                                "update-rpcs3-games from the rpcs3 folder if you're not on Linux.")
 
     games_dir = os.path.join(base_dir, "dev_hdd0", "game")
     game_ids = []
@@ -99,9 +108,12 @@ def update_games():
         except FileNotFoundError as e:
             print("warning: File \"{}\" does not exist and the game wont be updated.".format(e.filename))
 
-    with open(os.path.join(base_dir, 'games.yml'), "r") as f:
-        games_yml = yaml.load(f)
-
+    try:
+        with open(os.path.join(base_dir, 'games.yml'), "r") as f:
+            games_yml = yaml.load(f)
+    except FileNotFoundError:
+        games_yml = {}
+    
     for key in games_yml.keys():
         try:
             game_ids.append(get_title_id(os.path.join(games_yml[key], "PS3_GAME", "PARAM.SFO")))
