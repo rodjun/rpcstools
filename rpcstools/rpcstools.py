@@ -5,8 +5,6 @@ import yaml
 import urllib3
 import tqdm
 import xml.etree.ElementTree as ET
-import itertools
-
 from .sfo import SfoFile
 
 
@@ -93,7 +91,6 @@ def download_updates(tid, base_dir, cert_path):
 
 # TODO: Argument for the rpcs3 folder
 # TODO: Handle more exceptions/possible error cases
-# TODO: Better/More organized printing of information
 # TODO: Variable naming is hard
 def update_games():
     # Silence warnings caused by HIGH QUALITY Sony certs
@@ -129,7 +126,7 @@ def update_games():
         if tid is not None:
             game_ids.append(tid)
         else:
-            print("warning: File \"{}\" does not exist and the game wont be updated.".format(games_yml[key]))
+            print("warning: Couldn't find PARAM.SFO on  \"{}\" ".format(games_yml[key]))
 
     print("Found game ids: {}".format(game_ids))
     print("Starting downloads...")
@@ -140,6 +137,7 @@ def update_games():
         os.mkdir(downloads_path)
 
     cert_path = os.path.join(base_dir, "dev_flash", "data", "cert", "CA05.cer")
+
     if not os.path.isfile(cert_path):
         cert_path = False
         print("Couldn't find certificates on RPCS3 folder, going to ignore SSL."
@@ -147,7 +145,3 @@ def update_games():
 
     for title_dir in game_ids:
         download_updates(title_dir, base_dir, cert_path)
-
-
-if __name__ == "__main__":
-    update_games()
