@@ -45,7 +45,7 @@ def download_updates(tid, base_dir):
 
     cert_path = os.path.join(base_dir, "dev_flash", "data", "cert", "CA05.cer")
     if not os.path.isfile(cert_path):
-        cert_path=False
+        cert_path = False
         print("Couldn't find certificates on RPCS3 folder, going to ignore SSL."
               "To fix this just follow the rpcs3 quickstart guide")
 
@@ -71,7 +71,7 @@ def download_updates(tid, base_dir):
                              verify=cert_path,
                              stream=True)
 
-            total_size = int(r.headers.get('content-length', 0));
+            total_size = int(r.headers.get('content-length', 0))
 
             with open(disk_filepath, "wb") as f:
                 pbar = tqdm.tqdm(
@@ -113,7 +113,7 @@ def update_games():
             games_yml = yaml.load(f)
     except FileNotFoundError:
         games_yml = {}
-    
+
     for key in games_yml.keys():
         try:
             game_ids.append(get_title_id(os.path.join(games_yml[key], "PS3_GAME", "PARAM.SFO")))

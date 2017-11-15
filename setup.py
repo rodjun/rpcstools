@@ -20,6 +20,7 @@ setup(
     author='Rodrigo Junger',
     author_email='rodrigojunger@id.uff.br',
     url='https://github.com/rodjun/rpcstools',
+    download_url="https://github.com/rodjun/rpcstools/archive/0.1.tar.gz",
     license=license_text,
     classifiers=[
         'Development Status :: 3 - Alpha',
