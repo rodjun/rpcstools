@@ -5,7 +5,7 @@ from os import path
 
 here = path.abspath(path.dirname(__file__))
 
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 
@@ -28,7 +28,9 @@ setup(
         'Programming Language :: Python :: 3',
     ],
     keywords='rpcs3 emulator ps3 sfo development',
-    install_requires=['requests'],
+    install_requires=['requests',
+                      'pyyaml',
+                      'tqdm'],
     packages=find_packages(exclude=('tests', 'docs')),
     entry_points={
         'console_scripts': ['update-rpcs3-games=rpcstools.rpcstools:update_games']

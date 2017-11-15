@@ -1,7 +1,11 @@
 import requests
 import os
-from sfo import SfoFile
 import platform
+import yaml
+import urllib3
+import tqdm
+import xml.etree.ElementTree as ET
+from .sfo import SfoFile
 
 
 DEFAULT_RPCS3_SUBDIRS = ["shaderlog",
@@ -30,7 +34,57 @@ def get_rpcs3_dir():
     return None
 
 
+def get_title_id(paramsfo_location):
+    with open(paramsfo_location, "rb") as f:
+        the_sfo = SfoFile.from_reader(f)
+        return the_sfo["TITLE_ID"]
+
+
+def download_updates(tid, base_dir):
+    content_folder = os.path.join(base_dir, 'game_updates', str(tid))
+
+    cert_path = os.path.join(base_dir, "dev_flash", "data", "cert", "CA05.cer")
+
+    print("Downloading updates for title_id {}".format(tid))
+
+    if not os.path.isdir(content_folder):
+        os.mkdir(content_folder)
+
+    r = requests.get(url="https://a0.ww.np.dl.playstation.net/tpl/np/{tid}/{tid}-ver.xml".format(tid=tid),
+                     verify=cert_path)
+    try:
+        xml_tree = ET.fromstring(r.text)
+    except ET.ParseError:
+        print("Failed to parse xml for {} (Game might not have any updates)".format(tid))
+        return
+
+    for node in xml_tree.iter('package'):
+        disk_filename = node.attrib['url'].split(os.path.sep)[-1]
+        disk_filepath = os.path.join(content_folder, disk_filename)
+        if not os.path.isfile(disk_filepath):
+            r = requests.get(node.attrib['url'],
+                             verify=cert_path,
+                             stream=True)
+
+            total_size = int(r.headers.get('content-length', 0));
+
+            with open(disk_filepath, "wb") as f:
+                pbar = tqdm.tqdm(
+                    total=total_size,
+                    unit='B',
+                    unit_scale=True,
+                    desc="Downloading {}".format(disk_filename)
+                )
+                for data in r.iter_content(1024):
+                    f.write(data)
+                    pbar.update(1024)
+                pbar.close()
+
+
 def update_games():
+    # Silence warnings caused by HIGH QUALITY Sony certs
+    urllib3.disable_warnings(urllib3.exceptions.SubjectAltNameWarning)
+
     base_dir = get_rpcs3_dir()
 
     if base_dir is None:
@@ -41,13 +95,26 @@ def update_games():
 
     for game_dir in os.listdir(games_dir):
         try:
-            with open(os.path.join(games_dir, game_dir, "PARAM.SFO"), "rb") as f:
-                the_sfo = SfoFile.from_reader(f)
-                game_ids.append(the_sfo["TITLE_ID"])
+            game_ids.append(get_title_id(os.path.join(games_dir, game_dir, "PARAM.SFO")))
         except FileNotFoundError as e:
-            print(e)
+            print("warning: File \"{}\" does not exist and the game wont be updated.".format(e.filename))
 
+    with open(os.path.join(base_dir, 'games.yml'), "r") as f:
+        games_yml = yaml.load(f)
 
+    for key in games_yml.keys():
+        try:
+            game_ids.append(get_title_id(os.path.join(games_yml[key], "PS3_GAME", "PARAM.SFO")))
+        except FileNotFoundError as e:
+            print("warning: File \"{}\" does not exist and the game wont be updated.".format(e.filename))
 
-if __name__ == "__main__":
-    update_games()
+    print("Found game ids: {}".format(game_ids))
+    print("Starting downloads...")
+
+    downloads_path = os.path.join(base_dir, "game_updates")
+
+    if not os.path.isdir(downloads_path):
+        os.mkdir(downloads_path)
+
+    for title_dir in game_ids:
+        download_updates(title_dir, base_dir)
