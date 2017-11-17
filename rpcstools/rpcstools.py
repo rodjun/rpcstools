@@ -92,6 +92,7 @@ def download_updates(tid, base_dir, cert_path):
 # TODO: Argument for the rpcs3 folder
 # TODO: Handle more exceptions/possible error cases
 # TODO: Variable naming is hard
+# TODO: Verify SHA-1
 def update_games():
     # Silence warnings caused by HIGH QUALITY Sony certs
     urllib3.disable_warnings(urllib3.exceptions.SubjectAltNameWarning)
