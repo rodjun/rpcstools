@@ -4,9 +4,11 @@ import platform
 import yaml
 import urllib3
 import tqdm
+import hashlib
 import xml.etree.ElementTree as ET
 from .sfo import SfoFile
 
+BUFFER_SIZE = 1024 * 1024 * 3
 
 DEFAULT_RPCS3_SUBDIRS = ["shaderlog",
                          "GuiConfigs",
@@ -48,6 +50,51 @@ def get_title_id(game_folder):
             return None
 
 
+def local_pkg_valid(file_path, file_name, expected_file_size, expected_hash, check_hash=False):
+    if not os.path.isfile(file_path):
+        return False
+
+    file_size = os.path.getsize(file_path)
+
+    if file_size != expected_file_size:
+        return False
+
+    if check_hash:
+        # This ***should*** not fail because we already tested if the file exists, but who knows.
+        try:
+            with open(file_path, "rb") as f:
+                sha1_hash = hashlib.sha1()
+
+                pbar = tqdm.tqdm(
+                            total=file_size,
+                            unit='B',
+                            unit_scale=True,
+                            desc="Checking hash of package {}".format(file_name)
+                        )
+
+                bytes_left = file_size
+
+                while True:
+                    buf = f.read(BUFFER_SIZE)
+                    bytes_left -= len(buf)
+                    pbar.update(len(buf))
+
+                    if bytes_left < 0x20:
+                        sha1_hash.update(buf[:-(0x20 - bytes_left)])
+                        pbar.update(bytes_left)  # Get that sweet 100%
+                        break
+                    else:
+                        sha1_hash.update(buf)
+
+                if sha1_hash.hexdigest() != expected_hash:
+                    return False
+
+        except FileNotFoundError:
+            return False
+
+    return True
+
+
 def download_updates(tid, base_dir, cert_path):
     print("Downloading updates for title_id {}".format(tid))
 
@@ -68,7 +115,12 @@ def download_updates(tid, base_dir, cert_path):
         disk_filename = node.attrib['url'].split(os.path.sep)[-1]
         disk_filepath = os.path.join(content_folder, disk_filename)
 
-        if not os.path.isfile(disk_filepath) or os.path.getsize(disk_filepath) != int(node.attrib['size']):
+        if not local_pkg_valid(disk_filepath,
+                               disk_filename,
+                               int(node.attrib['size']),
+                               node.attrib['sha1sum'],
+                               check_hash=True):
+
             r = requests.get(node.attrib['url'],
                              verify=cert_path,
                              stream=True)
@@ -82,6 +134,7 @@ def download_updates(tid, base_dir, cert_path):
                     unit_scale=True,
                     desc="Downloading {}".format(disk_filename)
                 )
+
                 for data in r.iter_content(1024):
                     f.write(data)
                     pbar.update(1024)
